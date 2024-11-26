@@ -5,7 +5,35 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Plus, Save, Trash2, ArrowRight } from 'lucide-react';
+import { Plus, Save, Trash2, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+
+const RouteSegmentVisualization = ({ segments }) => {
+    return (
+        <div className="relative py-4">
+            <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-blue-200" />
+            {segments.map((segment, index) => (
+                <div key={segment.id || index} className="flex items-center mb-4 last:mb-0">
+                    <div className="w-4 h-4 rounded-full bg-blue-500 mr-4 relative z-10" />
+                    <div className="flex-1 bg-white p-3 rounded-lg border shadow-sm">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <span className="font-medium">{segment.from}</span>
+                                <ArrowRight className="inline-block w-4 h-4 mx-2 text-gray-400" />
+                                <span className="font-medium">{segment.to}</span>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                                {segment.leadTime} days
+                                {segment.type === 'existing' && (
+                                    <span className="ml-2 text-blue-500 text-xs">(Existing Route)</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const SupplyChainManager = () => {
     const [routes, setRoutes] = useState([
@@ -16,10 +44,19 @@ const SupplyChainManager = () => {
 
     const [selectedRoutes, setSelectedRoutes] = useState([]);
     const [combinedRoute, setCombinedRoute] = useState(null);
-
-    // State for route building
     const [routeSegments, setRouteSegments] = useState([]);
     const [newSegment, setNewSegment] = useState({ type: 'manual', from: '', to: '', leadTime: '' });
+    const [expandedRoutes, setExpandedRoutes] = useState(new Set());
+
+    const toggleRouteDetails = (routeId) => {
+        const newExpanded = new Set(expandedRoutes);
+        if (newExpanded.has(routeId)) {
+            newExpanded.delete(routeId);
+        } else {
+            newExpanded.add(routeId);
+        }
+        setExpandedRoutes(newExpanded);
+    };
 
     const addSegment = () => {
         if (newSegment.type === 'manual' && newSegment.from && newSegment.to && newSegment.leadTime) {
@@ -55,7 +92,8 @@ const SupplyChainManager = () => {
                 leadTime: routeSegments.reduce((sum, segment) => sum + Number(segment.leadTime), 0),
                 via: routeSegments.slice(0, -1).map(segment => segment.to),
                 isComposite: true,
-                segments: routeSegments
+                segments: routeSegments,
+                totalDistance: routeSegments.length,
             };
             setRoutes([...routes, newRoute]);
             setRouteSegments([]);
@@ -75,32 +113,12 @@ const SupplyChainManager = () => {
                     <CardTitle>Build New Route</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Current route segments */}
+                    {/* Current route segments visualization */}
                     {routeSegments.length > 0 && (
                         <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                             <h3 className="font-medium">Current Route Segments:</h3>
-                            <div className="flex flex-wrap gap-2 items-center">
-                                {routeSegments.map((segment, index) => (
-                                    <div key={segment.id || index} className="flex items-center">
-                                        <div className="bg-white px-3 py-1 rounded border flex items-center gap-2">
-                                            <span>{segment.from} → {segment.to}</span>
-                                            <span className="text-sm text-gray-500">({segment.leadTime}d)</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6"
-                                                onClick={() => removeSegment(index)}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                        {index < routeSegments.length - 1 && (
-                                            <ArrowRight className="w-4 h-4 mx-2 text-gray-400" />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="text-sm text-gray-500">
+                            <RouteSegmentVisualization segments={routeSegments} />
+                            <div className="text-sm text-gray-500 mt-4">
                                 Total Lead Time: {routeSegments.reduce((sum, segment) => sum + Number(segment.leadTime), 0)} days
                             </div>
                         </div>
@@ -162,37 +180,72 @@ const SupplyChainManager = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>Details</TableHead>
                                 <TableHead>From</TableHead>
                                 <TableHead>To</TableHead>
-                                <TableHead className="w-32">Lead Time (days)</TableHead>
+                                <TableHead className="w-32">Lead Time</TableHead>
                                 <TableHead className="w-32">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {routes.map((route) => (
-                                <TableRow key={route.id}>
-                                    <TableCell>{route.from}</TableCell>
-                                    <TableCell>{route.to}</TableCell>
-                                    <TableCell className="text-right">{route.leadTime}</TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-2">
+                                <React.Fragment key={route.id}>
+                                    <TableRow className="cursor-pointer">
+                                        <TableCell>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => deleteRoute(route.id)}
+                                                onClick={() => toggleRouteDetails(route.id)}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {expandedRoutes.has(route.id) ? (
+                                                    <ChevronUp className="w-4 h-4" />
+                                                ) : (
+                                                    <ChevronDown className="w-4 h-4" />
+                                                )}
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => addExistingRoute(route)}
-                                            >
-                                                Use in Route
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
+                                        </TableCell>
+                                        <TableCell>{route.from}</TableCell>
+                                        <TableCell>{route.to}</TableCell>
+                                        <TableCell className="text-right">
+                                            {route.leadTime} days
+                                            {route.isComposite && (
+                                                <span className="ml-2 text-xs text-blue-500">(Composite)</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => deleteRoute(route.id)}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => addExistingRoute(route)}
+                                                >
+                                                    Use in Route
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                    {expandedRoutes.has(route.id) && route.isComposite && (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="bg-gray-50">
+                                                <div className="p-4">
+                                                    <h4 className="font-medium mb-2">Route Details:</h4>
+                                                    <RouteSegmentVisualization segments={route.segments} />
+                                                    <div className="mt-2 text-sm text-gray-500">
+                                                        <div>Number of Segments: {route.segments.length}</div>
+                                                        <div>Via: {route.via.join(' → ')}</div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </TableBody>
                     </Table>
